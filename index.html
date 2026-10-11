@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Součástky PCB – přihlášení</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: "Segoe UI", "Frutiger", "Trebuchet MS", Tahoma, system-ui, sans-serif;
+    background: #0b2a50;
+    color: #fff;
+  }
+
+  /* ───────── Přihlašovací obrazovka (Vista) ───────── */
+  #login {
+    position: fixed; inset: 0; overflow: hidden;
+    background:
+      radial-gradient(1100px 420px at 50% 108%, rgba(130, 240, 228, .60), transparent 62%),
+      radial-gradient(800px 560px at 12% 18%, rgba(48, 140, 210, .50), transparent 62%),
+      radial-gradient(700px 500px at 92% 30%, rgba(24, 100, 170, .45), transparent 60%),
+      linear-gradient(180deg, #082244 0%, #0c4377 52%, #118098 100%);
+  }
+  .aurora { position: absolute; inset: 0; pointer-events: none; }
+  .aurora::before, .aurora::after {
+    content: ""; position: absolute; left: -10%; width: 120%; height: 38%;
+    background: linear-gradient(100deg, transparent 5%, rgba(160, 255, 235, .20) 40%, rgba(120, 200, 255, .16) 62%, transparent 92%);
+    filter: blur(26px); transform: rotate(-11deg);
+  }
+  .aurora::before { top: 52%; }
+  .aurora::after  { top: 66%; opacity: .7; transform: rotate(-6deg); }
+
+  .stage {
+    position: absolute; inset: 0 0 64px 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px; text-align: center;
+    transition: opacity .25s;
+  }
+  body.resuming .stage { opacity: 0; }
+
+  .tile {
+    width: 140px; height: 140px; padding: 6px; border-radius: 13px;
+    background: linear-gradient(145deg, rgba(255,255,255,.88), rgba(255,255,255,.28));
+    box-shadow: 0 0 0 1px rgba(255,255,255,.6), 0 14px 34px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.9);
+  }
+  .tile .pic {
+    position: relative; width: 100%; height: 100%; border-radius: 8px; overflow: hidden;
+    background: linear-gradient(165deg, #7fcbf6 0%, #2e86d6 52%, #1b5db0 100%);
+    box-shadow: inset 0 0 0 1px rgba(0,40,100,.35);
+  }
+  .tile .pic svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .tile .pic::after { /* lesk */
+    content: ""; position: absolute; left: -20%; top: -35%; width: 140%; height: 80%;
+    background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.08));
+    border-radius: 50%;
+  }
+
+  h1 {
+    margin: 22px 0 4px; font-size: 30px; font-weight: 300; letter-spacing: .2px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.55), 0 0 14px rgba(0,30,70,.55);
+  }
+  .sub { margin: 0 0 22px; font-size: 14px; color: #d3e8fb; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+
+  form { display: flex; align-items: center; gap: 10px; }
+  .fields { display: flex; flex-direction: column; gap: 8px; }
+  input {
+    width: 250px; height: 31px; padding: 0 10px; font: inherit; font-size: 14px; color: #111;
+    background: rgba(255,255,255,.96);
+    border: 1px solid rgba(0, 20, 50, .55); border-radius: 3px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,.3), 0 1px 0 rgba(255,255,255,.25);
+    outline: none;
+  }
+  input::placeholder { color: #6f7b88; }
+  input:focus { box-shadow: inset 0 1px 3px rgba(0,0,0,.25), 0 0 0 2px rgba(140, 215, 255, .85); }
+
+  .go {
+    width: 40px; height: 40px; flex: none; padding: 0; cursor: pointer; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.85);
+    background: radial-gradient(circle at 50% 18%, #8fd0ff 0%, #3b8fe0 42%, #1d62b4 100%);
+    box-shadow: 0 2px 8px rgba(0,0,0,.5), inset 0 -3px 6px rgba(0,30,90,.45), inset 0 2px 3px rgba(255,255,255,.55);
+    display: grid; place-items: center; transition: filter .15s, transform .05s;
+  }
+  .go:hover { filter: brightness(1.15); }
+  .go:active { transform: translateY(1px); filter: brightness(.9); }
+  .go:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  .go:disabled { cursor: progress; filter: grayscale(.4) brightness(.9); }
+  .go svg { width: 20px; height: 20px; filter: drop-shadow(0 1px 1px rgba(0,30,90,.6)); }
+  .go.busy svg { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .balloon {
+    display: flex; align-items: flex-start; gap: 10px; text-align: left;
+    max-width: 370px; margin-top: 22px; padding: 10px 14px 10px 12px;
+    color: #222; font-size: 13px; line-height: 1.4;
+    background: linear-gradient(#fffff0, #f4edc6);
+    border: 1px solid #8c8240; border-radius: 6px;
+    box-shadow: 0 6px 16px rgba(0,0,0,.45);
+  }
+  .balloon[hidden] { display: none; }
+  .balloon i {
+    flex: none; width: 18px; height: 18px; border-radius: 50%; margin-top: 1px;
+    background: radial-gradient(circle at 50% 25%, #ff9a8a, #d3301d 70%);
+    border: 1px solid #8a1a0e; color: #fff; font: 700 12px/16px Arial, sans-serif; text-align: center; font-style: normal;
+  }
+
+  .bar {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 64px;
+    display: flex; align-items: center; justify-content: space-between; padding: 0 28px;
+    background: linear-gradient(180deg, rgba(6,22,50,0), rgba(6,22,50,.72));
+    border-top: 1px solid rgba(255,255,255,.12);
+    font-size: 13px; color: #cfe3f7; text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  }
+
+  @media (max-width: 520px) {
+    input { width: 210px; }
+    h1 { font-size: 25px; }
+    .bar { padding: 0 16px; font-size: 12px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .go.busy svg { animation-duration: 3s; } .stage { transition: none; } }
+</style>
+</head>
+<body>
+
+<!-- Veřejná část: jen přihlášení. Celá aplikace se stáhne ze serveru až po ověření. -->
+<div id="login">
+  <div class="aurora"></div>
+  <main class="stage">
+    <div class="tile">
+      <div class="pic">
+        <svg viewBox="0 0 128 128" aria-hidden="true">
+          <g stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none" opacity=".95">
+            <path d="M44 30v-12M64 30v-12M84 30v-12M44 98v12M64 98v12M84 98v12M30 44H18M30 64H18M30 84H18M98 44h12M98 64h12M98 84h12"/>
+          </g>
+          <rect x="30" y="30" width="68" height="68" rx="6" fill="rgba(255,255,255,.93)" stroke="#fff"/>
+          <rect x="42" y="42" width="44" height="44" rx="3" fill="#1d62b4"/>
+          <circle cx="50" cy="50" r="3" fill="#bfe3ff"/>
+          <path d="M58 64h20M58 72h12" stroke="#bfe3ff" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <h1>Součástky PCB</h1>
+    <p class="sub">Přihlaste se do týmové databáze</p>
+
+    <form id="f" autocomplete="on">
+      <div class="fields">
+        <input id="u" name="username" type="text" placeholder="Uživatelské jméno" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        <input id="p" name="password" type="password" placeholder="Heslo" autocomplete="current-password" required>
+      </div>
+      <button id="go" class="go" type="submit" aria-label="Přihlásit se" title="Přihlásit se">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path id="goicon" d="M5 12h13M12 5l7 7-7 7"/>
+        </svg>
+      </button>
+    </form>
+
+    <div id="msg" class="balloon" role="alert" hidden><i>×</i><span id="msgtext"></span></div>
+  </main>
+  <div class="bar"><span>Přístup pouze pro členy týmu</span><span>Databáze součástek</span></div>
+</div>
+
+<div id="root"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ▼▼▼ Sem vložte URL nasazené webové aplikace z Apps Scriptu (končí na /exec) ▼▼▼ */
+  const API_URL = 'https://script.google.com/macros/s/AKfycbzXOMnqrpSIM3BPt9Zu95N0akG6yI72gdMgRNry0SGh_z8wA5EAHDxwUvx3yNQf-iFN/exec';
+  /* ▲▲▲ ─────────────────────────────────────────────────────────────────── ▲▲▲ */
+
+  const $ = (id) => document.getElementById(id);
+  let token = null;
+  try { token = sessionStorage.getItem('pcb_token'); } catch (_) {}
+
+  async function call(action, data) {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      // žádné vlastní hlavičky → prohlížeč nepošle preflight (Apps Script ho neumí)
+      body: JSON.stringify(Object.assign({ action: action, token: token }, data || {}))
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (json && json.error === 'session') { endSession(); location.reload(); throw new Error('Relace vypršela.'); }
+    return json;
+  }
+
+  function endSession() {
+    token = null;
+    try { sessionStorage.removeItem('pcb_token'); } catch (_) {}
+  }
+
+  async function logout() {
+    try { await call('logout'); } catch (_) {}
+    endSession();
+    location.reload();
+  }
+
+  function showError(text) {
+    $('msgtext').textContent = text;
+    $('msg').hidden = false;
+  }
+
+  function mountApp(ui, user) {
+    $('login').remove();
+    document.body.classList.remove('resuming');
+    document.body.classList.add('in-app');
+    document.title = 'Součástky PCB';
+
+    const tpl = document.createElement('template');
+    tpl.innerHTML = ui;
+    // skripty vložené přes innerHTML se nespustí, proto je spustíme ručně
+    const scripts = Array.from(tpl.content.querySelectorAll('script')).map((s) => { const c = s.textContent; s.remove(); return c; });
+    $('root').appendChild(tpl.content);
+
+    window.PCB = Object.freeze({ user: user, api: call, logout: logout });
+    scripts.forEach((code) => {
+      const s = document.createElement('script');
+      s.textContent = code;
+      document.body.appendChild(s);
+    });
+  }
+
+  $('f').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('msg').hidden = true;
+    if (API_URL.indexOf('PASTE_') === 0) { showError('V souboru index.html chybí adresa webové aplikace (API_URL).'); return; }
+
+    const btn = $('go');
+    btn.disabled = true; btn.classList.add('busy');
+    $('goicon').setAttribute('d', 'M12 3a9 9 0 1 0 9 9');
+    try {
+      token = null;
+      const r = await call('login', { user: $('u').value, pass: $('p').value });
+      if (!r.ok) { showError(r.error || 'Přihlášení se nezdařilo.'); $('p').value = ''; $('p').focus(); return; }
+      token = r.token;
+      try { sessionStorage.setItem('pcb_token', token); } catch (_) {}
+      mountApp(r.ui, r.user);
+    } catch (err) {
+      showError('Nepodařilo se spojit se serverem. Zkontrolujte připojení a zkuste to znovu.');
+    } finally {
+      btn.disabled = false; btn.classList.remove('busy');
+      $('goicon').setAttribute('d', 'M5 12h13M12 5l7 7-7 7');
+    }
+  });
+
+  // obnovení relace po znovunačtení stránky
+  if (token && API_URL.indexOf('PASTE_') !== 0) {
+    document.body.classList.add('resuming');
+    call('resume').then((r) => {
+      if (r && r.ok) mountApp(r.ui, r.user);
+      else { endSession(); document.body.classList.remove('resuming'); }
+    }).catch(() => { document.body.classList.remove('resuming'); });
+  } else {
+    $('u').focus();
+  }
+})();
+</script>
+</body>
+</html>
